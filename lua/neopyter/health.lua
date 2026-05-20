@@ -13,6 +13,12 @@ function M.check()
 
     a.run_blocking(function()
         health.start("neopyter: config")
+
+        if not neopyter.delay_setup_done then
+            health.warn("neopyter is delay setting up")
+            neopyter.delay_setup()
+        end
+
         health.info(vim.inspect(neopyter.config))
         local status = jupyter.jupyterlab:is_attached()
 
@@ -30,7 +36,8 @@ function M.check()
             if neopyter.parser[lang] then
                 health.ok(string.format("tree-sitter query: %s is set up", lang))
             else
-                health.warn(string.format("tree-sitter query: %s is not set up yet; please set up neopyter after the tree-sitter parser is available", lang))
+                health.warn(string.format("tree-sitter query: %s is not set up yet; please set up neopyter after the tree-sitter parser is available",
+                    lang))
             end
         end)
 

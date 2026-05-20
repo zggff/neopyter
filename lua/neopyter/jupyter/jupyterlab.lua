@@ -17,8 +17,7 @@ local a = require("neopyter.async")
 --- end)
 ---
 --- ```
---- NOTICE: Most API is need a async context, but neopyter provide a wrapped async context
---- automatically. Check `neopyter-async-api` for more details.
+--- Most APIs require an async context. Check `neopyter-async-api` for more details.
 
 ---@class neopyter.JupyterOption
 ---@field auto_activate_file? boolean
@@ -71,7 +70,9 @@ function JupyterLab:attach()
         group = self.augroup,
         pattern = config.file_pattern,
         callback = function(event)
-            self:_on_bufwinenter(event.buf)
+            a.run(function()
+                self:_on_bufwinenter(event.buf)
+            end)
         end,
     })
     a.api.nvim_create_autocmd({ "BufUnload" }, {
@@ -258,8 +259,6 @@ function JupyterLab:execute_command(command, args)
 end
 
 ---create new notebook, and selected it
----@nodoc
----@deprecated
 ---@async
 function JupyterLab:create_new(ipynb_path, widget_name, kernel)
     return self.client:request("createNew", ipynb_path, widget_name, kernel)
@@ -282,8 +281,5 @@ function JupyterLab:get_notebook(buf)
         end
     end
 end
-
----@nodoc
-JupyterLab = a.safe_wrap(JupyterLab)
 
 return JupyterLab

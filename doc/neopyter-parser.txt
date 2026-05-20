@@ -5,36 +5,36 @@ Neopyter module: Parser                                      *neopyter-parser*
 *neopyter.ICell*
 
     Fields: ~
-      • {start_row}      (`number`) include, 0-based
       • {end_row}        (`number`) include, 0-based
+      • {metadata}?      (`table<string, any>`)
       • {no_separator}?  (`boolean`) this cell without separator, like first
                          cell
-      • {type}           (`string`)
+      • {start_row}      (`number`) include, 0-based
       • {title}?         (`string`)
-      • {metadata}?      (`table<string, any>`)
+      • {type}           (`string`)
 
 *neopyter.INotebook*
 
     Fields: ~
-      • {metadata}?  (`table`)
       • {cells}      (`neopyter.ICell[]`)
+      • {metadata}?  (`table`)
 
 *neopyter.Parser*
 
     Fields: ~
-      • {trim_whitespace}    (`boolean`)
-      • {separator_query}    (`vim.treesitter.Query`)
-      • {separator_capture}  (`string`)
-      • {new}                (`fun(self: neopyter.Parser)`) See
-                             |Parser:new()|.
-      • {iter_separator}     (`fun(self: neopyter.Parser, source: number|string|string[], row: number?, col: number?, direct: "forward"|"backward"): Iter`)
-                             See |Parser:iter_separator()|.
       • {iter_cell}          (`fun(self: neopyter.Parser, source: number|string|string[], start_row: integer, end_row: integer): Iter`)
                              See |Parser:iter_cell()|.
+      • {iter_separator}     (`fun(self: neopyter.Parser, source: number|string|string[], row: number?, col: number?, direct: "forward"|"backward"): Iter`)
+                             See |Parser:iter_separator()|.
+      • {new}                (`fun(self: neopyter.Parser)`) See
+                             |Parser:new()|.
       • {parse_notebook}     (`fun(self: neopyter.Parser, source: number|string|string[]): neopyter.INotebook`)
                              See |Parser:parse_notebook()|.
       • {parse_source}       (`fun(self: neopyter.Parser, source: number|string|string[], cell: neopyter.ICell)`)
                              See |Parser:parse_source()|.
+      • {separator_capture}  (`string`)
+      • {separator_query}    (`vim.treesitter.Query`)
+      • {trim_whitespace}    (`boolean`)
 
 *neopyter.ParserCommonOption*
 

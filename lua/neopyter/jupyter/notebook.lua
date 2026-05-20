@@ -10,14 +10,15 @@ local a = require("neopyter.async")
 ---@nodoc
 ---@class neopyter.Notebook:neopyter.INotebook
 ---@field private client neopyter.RpcClient
----@field bufnr number
+---@field bufnr integer
 ---@field local_path string relative path
 ---@field remote_path string? #remote ipynb path
 ---@field private cells neopyter.ICell[]
 ---@field private metadata? table
 ---@field private active_cell_index number
 ---@field private augroup? number
----@field private _is_exist boolean
+---@field private _is_exist boolean a cached value of whether the corresponding notebook exists in jupyterlab, to avoid frequent request to check
+---existence
 local Notebook = {
     bufnr = -1,
 }
@@ -50,17 +51,20 @@ function Notebook:attach()
         if config.jupyter.scroll.enable then
             a.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
                 buffer = self.bufnr,
+                ---@async
                 callback = function()
-                    if not self:safe_sync() then
-                        return
-                    end
-                    local index = self:get_cursor_cell_pos()
-                    if index ~= self.active_cell_index then
-                        -- cache
-                        self.active_cell_index = index
-                        self:activate_cell(index - 1)
-                        self:scroll_to_item(index - 1, config.jupyter.scroll.align)
-                    end
+                    a.run(function()
+                        if not self:safe_sync() then
+                            return
+                        end
+                        local index = self:get_cursor_cell_pos()
+                        if index ~= self.active_cell_index then
+                            -- cache
+                            self.active_cell_index = index
+                            self:activate_cell(index - 1)
+                            self:scroll_to_item(index - 1, config.jupyter.scroll.align)
+                        end
+                    end)
                 end,
                 group = self.augroup,
             })
@@ -69,42 +73,52 @@ function Notebook:attach()
         a.api.nvim_create_autocmd({ "BufWritePre" }, {
             buffer = self.bufnr,
             callback = function()
-                if self:safe_sync() then
-                    self:save()
-                end
+                a.run(function()
+                    if self:safe_sync() then
+                        self:save()
+                    end
+                end)
             end,
             group = self.augroup,
         })
         a.api.nvim_buf_attach(self.bufnr, false, {
             on_lines = function(_, _, _, start_row, old_end_row, new_end_row, _)
-                vim.schedule(function()
-                    a.run(function()
-                        local syncable = self:safe_sync()
-                        if syncable then
-                            if config.jupyter.partial_sync then
-                                self:partial_sync(start_row, old_end_row - 1, new_end_row - 1)
-                            else
-                                self:parse()
-                                self:full_sync()
-                            end
+                a.run(function()
+                    local syncable = self:safe_sync()
+                    if syncable then
+                        if config.jupyter.partial_sync then
+                            self:partial_sync(start_row, old_end_row - 1, new_end_row - 1)
                         else
                             self:parse()
+                            self:full_sync()
                         end
-                    end, function() end)
-                end)
+                    else
+                        self:parse()
+                    end
+                end, function() end)
             end,
         })
     end
 
     self:parse()
     self._is_exist = nil
-    if self:is_connecting() then
+    if not self.client:is_connecting() then
+        return
+    end
+    if not self:is_exist() then
+        if config.jupyter.auto_activate_file then
+            local lab = require("neopyter.jupyter").jupyterlab
+            --- @cast lab -nil
+            lab:create_new(self.remote_path)
+        end
+    end
+    if self:is_exist() then
         self:open_or_reveal()
         self:activate()
         -- initial full sync
         self:full_sync()
+        require("neopyter.highlight").attach(self.bufnr, self.augroup)
     end
-    require("neopyter.highlight").attach(self.bufnr, self.augroup)
 end
 
 --- detach autocmd
@@ -114,13 +128,15 @@ function Notebook:detach()
     self.augroup = nil
 end
 
---- check attach status
+--- neopyter attach to buffer, if attach, the highlight will work
+--- @see Notebook:is_connecting
 ---@return boolean
 function Notebook:is_attached()
     return self.augroup ~= nil
 end
 
----@async
+--  connecting to jupyterlab, and associated notebook exists in jupyterlab, which means we can sync and control notebook
+--- @async
 function Notebook:is_connecting()
     if self.client:is_connecting() then
         if self._is_exist ~= nil then
@@ -132,6 +148,8 @@ function Notebook:is_connecting()
     return false
 end
 
+---@async
+---@nodoc
 function Notebook:safe_sync()
     if self:is_connecting() then
         if not self:is_open() then
@@ -142,6 +160,7 @@ function Notebook:safe_sync()
     return false
 end
 
+--- @nodoc
 function Notebook:get_parser()
     local ft = a.api.nvim_get_option_value("ft", { buf = self.bufnr })
     local lang = vim.treesitter.language.get_lang(ft) --[[@as string]]
@@ -150,6 +169,7 @@ function Notebook:get_parser()
     return parser
 end
 
+--- @nodoc
 function Notebook:parse()
     local lines = a.api.nvim_buf_get_lines(self.bufnr, 0, -1, true)
     local inotebook = self:get_parser():parse_notebook(lines)
@@ -162,7 +182,7 @@ end
 ---@param method string
 ---@param ... any
 ---@return any
----@package
+---@nodoc
 function Notebook:_request(method, ...)
     return self.client:request(method, self.remote_path, ...)
 end
@@ -435,10 +455,5 @@ function Notebook:run_cell_and_select_next()
     local line_count = a.api.nvim_buf_line_count(self.bufnr)
     self:set_cursor_pos({ math.min(cell.start_row + 2, line_count), 1 })
 end
-
----@nodoc
-Notebook = a.safe_wrap(Notebook, {
-    "is_connecting",
-})
 
 return Notebook

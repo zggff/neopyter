@@ -388,19 +388,9 @@ current_notebook:run_all_below()
 
 ### Async
 
-`Notebook` and `JupyterLab` APIs are wrapped by async context automatically.
-
-- If you call api from async context, anything is OK. Otherwise, the calling order cannot be guaranteed
-- A single API call always works
+`Notebook` and `JupyterLab` APIs must be called within an `async.run` context.
 
 ```lua
-vim.defer_fn(function()
-    -- non-async context, API response may be unordered
-    current_notebook:run_selected_cell()
-    current_notebook:run_all_above()
-    current_notebook:run_all_below()
-end, 0)
-
 require("neopyter.async").run(function()
     -- async context, so which will call and return in order
     current_notebook:run_selected_cell()

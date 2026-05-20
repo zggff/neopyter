@@ -15,8 +15,8 @@ Example: >lua
     end)
 <
 
-NOTICE: Most API is need a async context, but neopyter provide a wrapped async
-context automatically. Check `neopyter-async-api` for more details.
+Most APIs require an async context. Check `neopyter-async-api` for more
+details.
 
 
 *neopyter.JupyterOption*
@@ -35,6 +35,9 @@ JupyterLab:connect({address})                           *JupyterLab:connect()*
 
     Parameters: ~
       • {address}  (`string?`) address of neopyter server
+
+JupyterLab:create_new()                              *JupyterLab:create_new()*
+    create new notebook, and selected it
 
 JupyterLab:current_ipynb()                        *JupyterLab:current_ipynb()*
     get current notebook of jupyter lab
@@ -173,13 +176,14 @@ Notebook:get_cursor_pos()                          *Notebook:get_cursor_pos()*
         (`integer`) 0-index
         (`integer`) 0-index
 
-Notebook:get_parser()                                  *Notebook:get_parser()*
-
 Notebook:is_attached()                                *Notebook:is_attached()*
-    check attach status
+    neopyter attach to buffer, if attach, the highlight will work
 
     Return: ~
         (`boolean`)
+
+    See also: ~
+      • Notebook:is_connecting
 
 Notebook:is_connecting()                            *Notebook:is_connecting()*
 
@@ -206,8 +210,6 @@ Notebook:kernel_complete({source}, {offset})
 Notebook:open()                                              *Notebook:open()*
 
 Notebook:open_or_reveal()                          *Notebook:open_or_reveal()*
-
-Notebook:parse()                                            *Notebook:parse()*
 
                                                      *Notebook:partial_sync()*
 Notebook:partial_sync({start_row}, {old_end_row}, {new_end_row})
@@ -238,8 +240,6 @@ Notebook:run_cell_and_select_next()
     `notebook:run-cell-and-select-next`)
 
 Notebook:run_selected_cell()                    *Notebook:run_selected_cell()*
-
-Notebook:safe_sync()                                    *Notebook:safe_sync()*
 
 Notebook:save()                                              *Notebook:save()*
     save ipynb, same as `Ctrl+S` on jupyter lab
@@ -343,22 +343,10 @@ Neopyter module: Async                                    *neopyter-async-api*
 Neopyter's async module, which provides async functions and utilities for
 Neopyter. Which is built on top of native async support (`vim._async`) in
 Neovim, and provides a more convenient API for users to use async functions in
-Neopyter. The API of neopyter are mostly async, and users could call them in a
-sync context, neopyter will automatically wrap them in an async context, so
-that users could call them directly without worrying about async context, but
-the order of execution is not guaranteed, if you want to guarantee the order
-of execution, you should use `require("neopyter.async").run(...)` to run them
-in an async context.
+Neopyter. The API of neopyter are mostly async, and must be called within an
+`async.run` context to guarantee the order of execution.
 
-Example1: Call API in sync context, but the order of execution is not
-guaranteed >lua
-    vim.defer_fn(function()
-        -- non-async context, API response may be unordered
-        current_notebook:run_selected_cell()
-        current_notebook:run_all_above()
-        current_notebook:run_all_below()
-    end, 0)
-    Example2: Call API in async context, the order of execution is guaranteed
+Example: Call API in async context >lua
     require("neopyter.async").run(function()
         -- async context, so which will call and return in order
         current_notebook:run_selected_cell()
@@ -369,8 +357,7 @@ guaranteed >lua
 
 
 run({func}, {on_finish})                                  *neopyter-async-run*
-    Use this to either run a future concurrently and then do something else or
-    use it to run a future with a callback in a non async context
+    Use this to either run a future concurrently and then do something else
 
     Parameters: ~
       • {func}       (`async fun(): ...:any`)
@@ -386,15 +373,6 @@ run_blocking({suspend_fn}, {on_finish}, {timeout})
       • {timeout}     (`number?`)
 
 safe_async()                                       *neopyter-async-safe_async*
-
-safe_wrap({cls}, {ignored_methods})                 *neopyter-async-safe_wrap*
-    Wrap a class's member function, User could call
-    `lua =require("neopyter.jupyter").notebook:run_selected_cell()` in main
-    thread directly
-
-    Parameters: ~
-      • {cls}              (`table`)
-      • {ignored_methods}  (`string[]?`)
 
 wrap({func}, {argc})                                     *neopyter-async-wrap*
     Creates an async function with a callback style function.

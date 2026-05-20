@@ -51,6 +51,8 @@ local default_config = {
     ---@type neopyter.JupyterOption  # ref `:h neopyter.JupyterOption`
     jupyter = {
         auto_activate_file = true,
+        --- auto create `ipynb` file if not exist when activate, default to true
+        auto_create_ipynb = true,
         partial_sync = false,
         -- Always scroll to the current cell.
         scroll = {
@@ -102,12 +104,14 @@ function neopyter.setup(config)
             group = augroup,
             pattern = neopyter.config.file_pattern,
             callback = function()
-                neopyter.delay_setup()
-                vim.api.nvim_del_augroup_by_id(augroup)
-                jupyter.jupyterlab:attach()
-                if neopyter.config.auto_connect then
-                    jupyter.jupyterlab:connect()
-                end
+                a.run(function()
+                    neopyter.delay_setup()
+                    vim.api.nvim_del_augroup_by_id(augroup)
+                    jupyter.jupyterlab:attach()
+                    if neopyter.config.auto_connect then
+                        jupyter.jupyterlab:connect()
+                    end
+                end)
             end,
         })
     end

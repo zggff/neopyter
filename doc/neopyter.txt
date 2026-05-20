@@ -1,5 +1,5 @@
 *neopyter.txt*
-                                For NVIM v0.13.0    Last change: 2026 April 24
+                                  For NVIM v0.12.2    Last change: 2026 May 20
 
 ==============================================================================
 Table of Contents                                 *neopyter-table-of-contents*
@@ -141,6 +141,8 @@ Default configuration ~
         ---@type neopyter.JupyterOption  # ref `:h neopyter.JupyterOption`
         jupyter = {
             auto_activate_file = true,
+            --- auto create `ipynb` file if not exist when activate, default to true
+            auto_create_ipynb = true,
             partial_sync = false,
             -- Always scroll to the current cell.
             scroll = {
@@ -296,19 +298,9 @@ API                                                       *neopyter-usage-api*
 
 ASYNC ~
 
-`Notebook` and `JupyterLab` APIs are wrapped by async context automatically.
-
-- If you call api from async context, anything is OK. Otherwise, the calling order cannot be guaranteed
-- A single API call always works
+`Notebook` and `JupyterLab` APIs must be called within an `async.run` context.
 
 >lua
-    vim.defer_fn(function()
-        -- non-async context, API response may be unordered
-        current_notebook:run_selected_cell()
-        current_notebook:run_all_above()
-        current_notebook:run_all_below()
-    end, 0)
-    
     require("neopyter.async").run(function()
         -- async context, so which will call and return in order
         current_notebook:run_selected_cell()
@@ -533,19 +525,19 @@ Configuration Types                             *neopyter-configuration-types*
 *neopyter.Option*
 
     Fields: ~
-      • {remote_address}?   (`string`)
-      • {file_pattern}?     (`string[]`)
       • {auto_attach}?      (`boolean`) Automatically attach to the Neopyter
                             server when open file_pattern matched files
       • {auto_connect}?     (`boolean`) Auto connect jupyter lab
-      • {mode}?             (`"direct"|"proxy"`) Work mode
+      • {file_pattern}?     (`string[]`)
       • {filename_mapper}?  (`fun(ju_path:string):string`)
-      • {on_attach}?        (`fun(bufnr:number)`)
-      • {jupyter}?          (`neopyter.JupyterOption`)
       • {highlight}?        (`neopyter.HighlightOption`)
-      • {textobject}?       (`neopyter.TextObjectOption`)
       • {injection}?        (`neopyter.InjectionOption`)
+      • {jupyter}?          (`neopyter.JupyterOption`)
+      • {mode}?             (`"direct"|"proxy"`) Work mode
+      • {on_attach}?        (`fun(bufnr:number)`)
       • {parser}?           (`neopyter.ParserOption`)
+      • {remote_address}?   (`string`)
+      • {textobject}?       (`neopyter.TextObjectOption`)
 
 
 neopyter:delay_setup()                                *neopyter:delay_setup()*
@@ -590,23 +582,23 @@ neopyter:setup_r_parser()                          *neopyter:setup_r_parser()*
 *neopyter.CompletionItem*
 
     Fields: ~
-      • {label}       (`string`)
-      • {type}        (`string`)
       • {insertText}  (`string`)
+      • {label}       (`string`)
       • {source}      (`string`) Completion source of `JupyterLab` , one of:
                       • `CompletionProvider:kernel` jupynium provider
                       • `CompletionProvider:context`
                       • `LSP` if jupyterlab-lsp is installed
                       • others if some lab extension installed
+      • {type}        (`string`)
 
 *neopyter.CompletionParams*
 
     Fields: ~
-      • {source}     (`string`) code before cursor
       • {cellIndex}  (`number`) the cell index of cursor
-      • {offset}     (`number`) offset of cursor in source
-      • {trigger}    (`neopyter.CompletionTriggerKind`)
-      • {line}       (`number`) The cursor line number.
       • {column}     (`number`) The cursor column number.
+      • {line}       (`number`) The cursor line number.
+      • {offset}     (`number`) offset of cursor in source
+      • {source}     (`string`) code before cursor
+      • {trigger}    (`neopyter.CompletionTriggerKind`)
 
  vim:tw=78:ts=8:sw=4:sts=4:et:ft=help:norl:

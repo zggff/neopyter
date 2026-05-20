@@ -4,19 +4,10 @@ local a = require("vim._async")
 
 --- @brief Neopyter's async module, which provides async functions and utilities for Neopyter.
 --- Which is built on top of native async support (`vim._async`) in Neovim, and provides a more convenient API for users to use async functions in Neopyter.
---- The API of neopyter are mostly async, and users could call them in a sync context, neopyter will automatically wrap them in an async context, so
---- that users could call them directly without worrying about async context, but the order of execution is not guaranteed, if you want to guarantee
---- the order of execution, you should use `require("neopyter.async").run(...)` to run them in an async context.
+--- The API of neopyter are mostly async, and must be called within an `async.run` context to guarantee the order of execution.
 ---
---- Example1: Call API in sync context, but the order of execution is not guaranteed
+--- Example: Call API in async context
 --- ```lua
---- vim.defer_fn(function()
----     -- non-async context, API response may be unordered
----     current_notebook:run_selected_cell()
----     current_notebook:run_all_above()
----     current_notebook:run_all_below()
---- end, 0)
---- Example2: Call API in async context, the order of execution is guaranteed
 --- require("neopyter.async").run(function()
 ---     -- async context, so which will call and return in order
 ---     current_notebook:run_selected_cell()
@@ -47,7 +38,6 @@ function async.safe_async()
 end
 
 ---Use this to either run a future concurrently and then do something else
----or use it to run a future with a callback in a non async context
 ---@param func async fun(): ...:any
 ---@param on_finish? fun(err: string?, ...:any)
 function async.run(func, on_finish)
@@ -203,28 +193,6 @@ async.api = setmetatable({}, {
     end,
 })
 
----same with nvim.api.nvim_create_autocmd
----@param event any
----@param opts any
----@see vim.api.nvim_create_autocmd
-async.api.nvim_create_autocmd = function(event, opts)
-    async.safe_async()
-    if opts ~= nil and vim.is_callable(opts.callback) then
-        local callback = opts.callback
-        opts.callback = function(...)
-            local args = { ... }
-            async.run(function()
-                callback(unpack(args))
-            end, function(err)
-                if err then
-                    error(err)
-                end
-            end)
-        end
-    end
-    return vim.api.nvim_create_autocmd(event, opts)
-end
-
 
 async.defer_fn = vim.defer_fn
 
@@ -249,52 +217,5 @@ async.health = setmetatable({}, {
         end
     end,
 })
-
----Wrap a class's member function,
----User could call `lua =require("neopyter.jupyter").notebook:run_selected_cell()` in main thread directly
----@param cls table
----@param ignored_methods? string[]
-function async.safe_wrap(cls, ignored_methods)
-    local logger = require("neopyter.logger")
-    ignored_methods = ignored_methods or {}
-    table.insert(ignored_methods, "new")
-    local function is_ignored(key)
-        for _, val in ipairs(ignored_methods) do
-            if val == key then
-                return true
-            end
-        end
-        return false
-    end
-    logger.log(string.format("inject class %s start", vim.inspect(cls)))
-    local injected_methods = {}
-    for key, value in pairs(cls) do
-        if not key:match("^_%w.+$") and not is_ignored(key) and type(value) == "function" then
-            logger.log(string.format("inject method [%s]", key))
-            table.insert(injected_methods, key)
-            cls[key] = function(...)
-                local thread = coroutine.running()
-                if thread ~= nil then
-                    return value(...)
-                else
-                    local params = { ... }
-                    logger.log(string.format("Call api [%s] from main thread directly", key))
-                    return async.run(function()
-                        return value(unpack(params))
-                    end, function(result)
-                        local utils = require("neopyter.utils")
-                        ---WARN:Only when the user directly calls the API from the main thread, e.g. autocmd, keymap,
-                        ---     programmatic calls should be wrapped with `require("neopyter.async").run(...)`
-                        utils.notify_info(string.format("Call api [%s] complete: %s", key, result))
-                        logger.log(string.format("Call api [%s] complete from main thread directly: %s", key, result))
-                    end)
-                end
-            end
-        end
-    end
-    cls.__injected_methods = injected_methods
-    logger.log(string.format("inject class end", vim.inspect(cls)))
-    return cls
-end
 
 return async
