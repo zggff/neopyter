@@ -234,6 +234,8 @@ local default_config = {
     ---@type neopyter.JupyterOption  # ref `:h neopyter.JupyterOption`
     jupyter = {
         auto_activate_file = true,
+        --- auto create `ipynb` file if not exist when activate, default to true
+        auto_create_ipynb = true,
         partial_sync = false,
         -- Always scroll to the current cell.
         scroll = {
